@@ -38,7 +38,7 @@ body{padding-bottom:env(safe-area-inset-bottom)}
 .chg-up{color:var(--green)}.chg-dn{color:var(--red)}
 
 /* SYMBOL + TF SELECTS */
-.top-selects{display:flex;gap:6px;padding:8px 12px 0;background:rgba(10,10,10,.94)}
+.top-selects{display:flex;gap:14px;padding:8px 12px 4px;background:rgba(10,10,10,.94)}
 .sel{background:var(--bg3);border:1px solid var(--border);color:var(--text);font-size:13px;padding:6px 10px;border-radius:var(--radius-sm);cursor:pointer;outline:none;-webkit-appearance:none;appearance:none;flex:1;text-align:center}
 
 .tabbar{position:fixed;bottom:0;left:0;right:0;z-index:100;background:rgba(10,10,10,.95);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-top:1px solid var(--border);padding-bottom:env(safe-area-inset-bottom);display:flex}
@@ -208,9 +208,12 @@ input:checked+.toggle-slider:before{transform:translateX(18px);background:#fff}
 
     <!-- Candle chart -->
     <div class="card" style="padding-bottom:10px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
         <div class="card-title" style="margin-bottom:0">裸K棒圖</div>
-        <span style="font-size:11px;color:var(--text3)" id="chartSymbolLabel">BTC · 1H</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button id="fibToggleBtn" onclick="toggleFib()" style="font-size:10px;padding:3px 9px;border-radius:100px;border:1px solid var(--border);background:var(--bg4);color:var(--text3);cursor:pointer;transition:all .15s">Fib 關</button>
+          <span style="font-size:11px;color:var(--text3)" id="chartSymbolLabel">BTC · 1H</span>
+        </div>
       </div>
       <div class="chart-wrap" id="chartWrap">
         <canvas id="candleChart"></canvas>
@@ -355,6 +358,7 @@ const SYMBOLS={
 ════════════════════════════════════════ */
 let currentSymbol='BTCUSDT', currentCandleTf='1h', currentEntryTf='1h';
 let analyses={}, rawKlines={};
+let showFib=false;
 let alertLog=[], notifEnabled=false, prevPrice=0;
 let timerFired={}, settings={};
 let unreadAlerts=0, activePage='home';
@@ -544,6 +548,14 @@ async function fetchAll(){
 /* ════════════════════════════════════════
    CANDLE CHART  (with hi/lo labels)
 ════════════════════════════════════════ */
+function toggleFib(){
+  showFib=!showFib;
+  const btn=document.getElementById('fibToggleBtn');
+  if(showFib){btn.textContent='Fib 開';btn.style.background='var(--blue-bg)';btn.style.borderColor='var(--blue)';btn.style.color='var(--blue)'}
+  else{btn.textContent='Fib 關';btn.style.background='var(--bg4)';btn.style.borderColor='var(--border)';btn.style.color='var(--text3)'}
+  drawCandleChart(currentCandleTf);
+}
+
 function drawCandleChart(tfKey){
   const klines=rawKlines[tfKey];
   if(!klines||!klines.length)return;
@@ -620,6 +632,31 @@ function drawCandleChart(tfKey){
   ctx.beginPath();ctx.moveTo(highX,chartHighY-6);ctx.lineTo(highX+4,chartHighY);ctx.lineTo(highX,chartHighY+6);ctx.lineTo(highX-4,chartHighY);ctx.closePath();ctx.fill();
   ctx.fillStyle='rgba(74,158,232,.85)';
   ctx.beginPath();ctx.moveTo(lowX,chartLowY-6);ctx.lineTo(lowX+4,chartLowY);ctx.lineTo(lowX,chartLowY+6);ctx.lineTo(lowX-4,chartLowY);ctx.closePath();ctx.fill();
+
+  // ── FIBONACCI RETRACEMENT LINES (toggleable) ──
+  if(showFib){
+    const fibLevels=[
+      {r:0,    label:'0%',    color:'rgba(74,158,232,.75)'},
+      {r:0.236,label:'23.6%', color:'rgba(155,114,232,.75)'},
+      {r:0.382,label:'38.2%', color:'rgba(255,165,0,.75)'},
+      {r:0.5,  label:'50%',   color:'rgba(255,255,255,.5)'},
+      {r:0.618,label:'61.8%', color:'rgba(255,214,0,.85)'},
+      {r:0.786,label:'78.6%', color:'rgba(255,120,0,.7)'},
+      {r:1,    label:'100%',  color:'rgba(29,185,122,.75)'},
+    ];
+    const fibFS=Math.max(8,Math.min(10,W/55));
+    ctx.font=`${fibFS}px -apple-system,sans-serif`;
+    fibLevels.forEach(fl=>{
+      const p=minP+(maxP-minP)*(1-fl.r); // map ratio: 0=minP,1=maxP
+      const fy=toY(p);
+      ctx.strokeStyle=fl.color;ctx.lineWidth=0.8;ctx.setLineDash([4,3]);
+      ctx.beginPath();ctx.moveTo(padL,fy);ctx.lineTo(W-padR+4,fy);ctx.stroke();
+      ctx.setLineDash([]);
+      // Label on left side
+      ctx.fillStyle=fl.color;ctx.textAlign='left';ctx.textBaseline='bottom';
+      ctx.fillText(fl.label,padL+2,fy-1);
+    });
+  }
 
   // Candles
   recent.forEach((k,i)=>{
@@ -863,6 +900,55 @@ function renderEntry(){
       進場區基於 Fib 0.236 回調位，止損設在前低/前高外 5% buffer。<br>
       TP1 = 前高/前低（1:1），TP2 = 50% 延伸（1:1.5），TP3 = 100% 延伸（1:2）。<br>
       週期：${tf.label}｜前高 ${fmtPrice(swingHigh,sym)}｜前低 ${fmtPrice(swingLow,sym)}
+    </div>
+
+    <!-- ── 幣圈小白進場建議 ── -->
+    <div style="margin-top:12px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:10px;display:flex;align-items:center;gap:6px">
+        <span style="font-size:16px">🧭</span> 幣圈小白進場邏輯與建議
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:10px;font-size:12px;line-height:1.7;color:var(--text2)">
+
+        <div style="background:var(--bg2);border-radius:var(--radius-sm);padding:10px 12px;border-left:3px solid var(--blue)">
+          <div style="font-size:11px;font-weight:600;color:var(--blue);margin-bottom:4px">① 先看大方向，再找小週期進場</div>
+          從日線（1D）與4H判斷整體趨勢方向。若日線偏多，只做多單；若日線偏空，只做空單。不要逆大週期趨勢操作，這是小白最常犯的錯誤。
+        </div>
+
+        <div style="background:var(--bg2);border-radius:var(--radius-sm);padding:10px 12px;border-left:3px solid var(--green)">
+          <div style="font-size:11px;font-weight:600;color:var(--green);margin-bottom:4px">② 等訊號共振，不要搶進</div>
+          當「多方共振」橫幅出現（多個週期同時偏多），代表進場信心較高。單一週期訊號容易假突破。建議等至少 2 個週期（如 1H + 4H）同時確認再進場。
+        </div>
+
+        <div style="background:var(--bg2);border-radius:var(--radius-sm);padding:10px 12px;border-left:3px solid var(--yellow)">
+          <div style="font-size:11px;font-weight:600;color:var(--yellow);margin-bottom:4px">③ 斐波納契進場區 — 等回調再買</div>
+          不要追高買入。價格拉升後通常會回調至 Fib 0.382～0.618 區間再繼續上漲。在這個回調區間買入，止損放在前低下方，風險報酬比最佳。
+        </div>
+
+        <div style="background:var(--bg2);border-radius:var(--radius-sm);padding:10px 12px;border-left:3px solid var(--purple)">
+          <div style="font-size:11px;font-weight:600;color:var(--purple);margin-bottom:4px">④ 止損是保命用的，不能不設</div>
+          每筆交易進場前先想好「這筆我最多能虧多少」。建議單筆虧損不超過總資金的 2%。若止損設在前低下方，依照止損距離反推你能買多少張，而不是用全部資金梭哈。
+        </div>
+
+        <div style="background:var(--bg2);border-radius:var(--radius-sm);padding:10px 12px;border-left:3px solid var(--amber)">
+          <div style="font-size:11px;font-weight:600;color:var(--amber);margin-bottom:4px">⑤ 止盈要分批，不要一次跑完</div>
+          到達 TP1（1:1）先出 50% 倉位，剩下的移動止損到成本位（保本）。到達 TP2 再出剩餘 50%。這樣即使行情突然反轉，至少保住了一部分利潤。
+        </div>
+
+        <div style="background:var(--bg2);border-radius:var(--radius-sm);padding:10px 12px;border-left:3px solid var(--red)">
+          <div style="font-size:11px;font-weight:600;color:var(--red);margin-bottom:4px">⑥ 避免的常見錯誤</div>
+          ✗ 追高進場（等回調）<br>
+          ✗ 不設止損（一定要設）<br>
+          ✗ 逆趨勢操作（順勢而為）<br>
+          ✗ 重倉單一幣種（分散風險）<br>
+          ✗ 在 RSI &gt; 80 還買入（超買區不追多）
+        </div>
+
+        <div style="background:var(--amber-bg);border:1px solid var(--amber);border-radius:var(--radius-sm);padding:10px 12px">
+          <div style="font-size:11px;font-weight:600;color:var(--amber);margin-bottom:4px">⚠️ 重要免責聲明</div>
+          <span style="color:var(--text3)">本工具所有訊號與點位僅供技術分析學習參考，不構成任何投資建議。加密貨幣市場波動極大，投資前請充分了解風險，量力而為。</span>
+        </div>
+      </div>
     </div>
   `;
 }
