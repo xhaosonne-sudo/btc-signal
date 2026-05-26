@@ -1,0 +1,1047 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="幣種訊號">
+<meta name="theme-color" content="#0a0a0a">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<title>幣種訊號監控</title>
+<style>
+:root{
+  --bg:#0a0a0a;--bg2:#141414;--bg3:#1e1e1e;--bg4:#282828;
+  --text:#f0f0f0;--text2:#a0a0a0;--text3:#606060;
+  --green:#1DB97A;--green-bg:#0d2e1e;--green-border:#1a5c3a;
+  --red:#E84B4B;--red-bg:#2e0d0d;--red-border:#5c1a1a;
+  --amber:#D4930A;--amber-bg:#2a1e05;
+  --blue:#4A9EE8;--blue-bg:#0d1e2e;
+  --yellow:#FFD600;--purple:#9B72E8;
+  --border:#2a2a2a;--radius:12px;--radius-sm:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,'SF Pro Display',sans-serif;overflow-x:hidden}
+body{padding-bottom:env(safe-area-inset-bottom)}
+
+.nav{position:sticky;top:0;z-index:100;background:rgba(10,10,10,.94);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid var(--border);padding-top:env(safe-area-inset-top)}
+.nav-inner{display:flex;align-items:center;justify-content:space-between;height:52px;padding:0 12px}
+.nav-left{display:flex;align-items:center;gap:6px}
+.nav-title{font-size:16px;font-weight:600}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block;animation:pulse 2s ease-in-out infinite}
+.live-dot.off{background:var(--text3);animation:none}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.nav-right{text-align:right}
+.nav-price-val{font-size:15px;font-weight:600;font-variant-numeric:tabular-nums}
+.nav-price-chg{font-size:11px;margin-top:1px}
+.chg-up{color:var(--green)}.chg-dn{color:var(--red)}
+
+/* SYMBOL + TF SELECTS */
+.top-selects{display:flex;gap:6px;padding:8px 12px 0;background:rgba(10,10,10,.94)}
+.sel{background:var(--bg3);border:1px solid var(--border);color:var(--text);font-size:13px;padding:6px 10px;border-radius:var(--radius-sm);cursor:pointer;outline:none;-webkit-appearance:none;appearance:none;flex:1;text-align:center}
+
+.tabbar{position:fixed;bottom:0;left:0;right:0;z-index:100;background:rgba(10,10,10,.95);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-top:1px solid var(--border);padding-bottom:env(safe-area-inset-bottom);display:flex}
+.tab-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;height:52px;gap:3px;font-size:10px;color:var(--text3);cursor:pointer;transition:color .15s;position:relative}
+.tab-item.active{color:var(--blue)}
+.tab-item svg{width:22px;height:22px}
+.tab-badge{position:absolute;top:4px;right:calc(50% - 18px);background:var(--red);color:#fff;font-size:9px;font-weight:700;min-width:16px;height:16px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 3px}
+
+.page{display:none;padding:10px 12px 78px}
+.page.active{display:block}
+
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-bottom:10px}
+.card-title{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px}
+
+/* TF GRID */
+.tf-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-bottom:10px}
+.tf-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:7px 5px;text-align:center}
+.tf-card.bull{background:var(--green-bg);border-color:var(--green-border)}
+.tf-card.bear{background:var(--red-bg);border-color:var(--red-border)}
+.tf-card.neut{background:var(--bg3)}
+.tf-lbl{font-size:10px;color:var(--text3);margin-bottom:2px}
+.tf-bias{font-size:13px;font-weight:600}
+.tf-score{font-size:9px;color:var(--text3);margin-top:2px}
+.tf-timer{font-size:9px;font-weight:500;margin-top:3px;color:var(--blue)}
+.tf-timer.urgent{color:var(--red)}
+.prog-wrap{height:2px;background:var(--bg4);border-radius:1px;margin-top:3px;overflow:hidden}
+.prog-fill{height:100%;background:var(--blue);border-radius:1px;transition:width 1s linear}
+
+/* BANNER */
+.banner{border-radius:var(--radius);padding:12px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px;border:1px solid transparent}
+.banner.bull{background:var(--green-bg);border-color:var(--green-border)}
+.banner.bear{background:var(--red-bg);border-color:var(--red-border)}
+.banner.neut{background:var(--bg3);border-color:var(--border)}
+.banner-icon{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.banner.bull .banner-icon{background:rgba(29,185,122,.15)}
+.banner.bear .banner-icon{background:rgba(232,75,75,.15)}
+.banner.neut .banner-icon{background:var(--bg4)}
+.banner-title{font-size:14px;font-weight:600;margin-bottom:2px}
+.banner-sub{font-size:11px;color:var(--text2);line-height:1.4}
+
+/* SIGNALS */
+.sig-item{display:flex;align-items:flex-start;gap:9px;padding:9px 10px;border-radius:var(--radius-sm);margin-bottom:5px;border:1px solid transparent}
+.sig-item:last-child{margin-bottom:0}
+.sig-bull{background:var(--green-bg);border-color:var(--green-border)}
+.sig-bear{background:var(--red-bg);border-color:var(--red-border)}
+.sig-4h-gold{background:#1a1a00;border:1.5px solid var(--yellow)}
+.sig-4h-gold .sig-name{color:var(--yellow)!important;font-weight:700}
+.sig-4h-gold .sig-tf-badge{background:#3a3a00;color:var(--yellow);border-color:var(--yellow)}
+.sig-4h-dead{background:#0a0a0a;border:1.5px solid var(--red)}
+.sig-4h-dead .sig-name{color:var(--red)!important;font-weight:700}
+.sig-4h-dead .sig-tf-badge{background:#1a0000;color:var(--red);border-color:var(--red)}
+.sig-rsi-low{background:#0d2e1e;border:1.5px solid var(--yellow)}
+.sig-rsi-low .sig-name{color:var(--yellow)!important;font-weight:700}
+.sig-rsi-low .sig-tf-badge{background:#1a3a00;color:var(--yellow);border-color:var(--yellow)}
+.sig-rsi-high{background:#0a0a0a;border:1.5px solid var(--red)}
+.sig-rsi-high .sig-name{color:var(--red)!important;font-weight:700}
+.sig-rsi-high .sig-tf-badge{background:#1a0000;color:var(--red);border-color:var(--red)}
+.sig-icon-wrap{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.sig-bull .sig-icon-wrap,.sig-rsi-low .sig-icon-wrap{background:rgba(29,185,122,.15)}
+.sig-bear .sig-icon-wrap,.sig-rsi-high .sig-icon-wrap,.sig-4h-dead .sig-icon-wrap{background:rgba(232,75,75,.15)}
+.sig-4h-gold .sig-icon-wrap{background:rgba(255,214,0,.12)}
+.sig-info{flex:1;min-width:0}
+.sig-name{font-size:13px;font-weight:500;margin-bottom:2px}
+.sig-desc{font-size:11px;color:var(--text2);line-height:1.4}
+.sig-tf-badge{font-size:10px;padding:2px 7px;border-radius:100px;flex-shrink:0;align-self:flex-start;margin-top:1px;border:1px solid transparent}
+.sig-bull .sig-tf-badge{background:var(--green-bg);color:var(--green);border-color:var(--green-border)}
+.sig-bear .sig-tf-badge{background:var(--red-bg);color:var(--red);border-color:var(--red-border)}
+
+/* CANDLE CHART WRAP */
+.chart-wrap{position:relative;width:100%;border-radius:var(--radius-sm);overflow:hidden;background:var(--bg3);margin-top:8px}
+canvas#candleChart{display:block;width:100%}
+
+/* ENTRY - FIB */
+.tf-entry-select{display:flex;gap:5px;margin-bottom:10px;flex-wrap:wrap}
+.tf-entry-btn{padding:5px 12px;font-size:12px;border:1px solid var(--border);border-radius:100px;cursor:pointer;background:transparent;color:var(--text3);transition:all .15s}
+.tf-entry-btn.active{background:var(--blue-bg);border-color:var(--blue);color:var(--blue)}
+.fib-section{margin-bottom:12px}
+.fib-section-title{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.fib-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.fib-card{border-radius:var(--radius-sm);padding:11px}
+.fib-long{background:var(--green-bg);border:1px solid var(--green-border)}
+.fib-short{background:var(--red-bg);border:1px solid var(--red-border)}
+.fib-type{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px}
+.fib-long .fib-type{color:var(--green)}
+.fib-short .fib-type{color:var(--red)}
+.fib-row{display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px}
+.fib-row:last-child{margin-bottom:0}
+.fib-long .fib-key{color:rgba(29,185,122,.6)}
+.fib-long .fib-val{color:var(--green);font-weight:500}
+.fib-short .fib-key{color:rgba(232,75,75,.6)}
+.fib-short .fib-val{color:var(--red);font-weight:500}
+.fib-divider{height:1px;background:rgba(255,255,255,.06);margin:6px 0}
+.fib-note{font-size:10px;color:var(--text3);margin-top:8px;line-height:1.5;padding:8px;background:var(--bg3);border-radius:var(--radius-sm)}
+.swing-row{display:flex;gap:6px;margin-bottom:10px}
+.swing-box{flex:1;background:var(--bg3);border-radius:var(--radius-sm);padding:9px 10px}
+.swing-lbl{font-size:10px;color:var(--text3);margin-bottom:3px}
+.swing-val{font-size:14px;font-weight:600;font-variant-numeric:tabular-nums}
+.score-row{display:flex;gap:6px;margin-bottom:10px}
+.score-box{flex:1;background:var(--bg3);border-radius:var(--radius-sm);padding:9px 10px}
+.score-lbl{font-size:10px;color:var(--text3);margin-bottom:3px}
+.score-val{font-size:18px;font-weight:600;font-variant-numeric:tabular-nums}
+
+/* LOG */
+.log-item{display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border-radius:var(--radius-sm);margin-bottom:4px;font-size:12px;border:1px solid transparent;line-height:1.4}
+.log-item:last-child{margin-bottom:0}
+.log-bull{background:var(--green-bg);border-color:var(--green-border);color:var(--green)}
+.log-bear{background:var(--red-bg);border-color:var(--red-border);color:var(--red)}
+.log-neut{background:var(--bg3);border-color:var(--border);color:var(--text2)}
+.log-time{font-size:10px;opacity:.6;flex-shrink:0;white-space:nowrap;margin-top:1px}
+.log-msg{flex:1}
+
+/* SETTINGS */
+.setting-row{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--border)}
+.setting-row:last-child{border-bottom:none}
+.setting-lbl{font-size:14px}
+.setting-sub{font-size:11px;color:var(--text3);margin-top:2px}
+.toggle{position:relative;width:44px;height:26px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0}
+.toggle-slider{position:absolute;inset:0;background:var(--bg4);border-radius:13px;cursor:pointer;transition:.2s;border:1px solid var(--border)}
+.toggle-slider:before{content:'';position:absolute;width:20px;height:20px;left:2px;top:2px;background:var(--text2);border-radius:50%;transition:.2s}
+input:checked+.toggle-slider{background:var(--green);border-color:var(--green)}
+input:checked+.toggle-slider:before{transform:translateX(18px);background:#fff}
+.notif-btn{width:100%;padding:14px;border-radius:var(--radius);border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:15px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px;transition:all .15s}
+.notif-btn.on{background:var(--green-bg);border-color:var(--green-border);color:var(--green)}
+.notif-btn.warn{background:var(--amber-bg);border-color:var(--amber);color:var(--amber)}
+.empty{text-align:center;color:var(--text3);font-size:13px;padding:20px 0}
+.green{color:var(--green)}.red{color:var(--red)}.amber{color:var(--amber)}.blue{color:var(--blue)}.yellow{color:var(--yellow)}
+.spin-wrap{display:flex;align-items:center;justify-content:center;padding:30px}
+.spin{width:26px;height:26px;border:2px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <div class="nav-inner">
+    <div class="nav-left">
+      <span class="live-dot" id="liveDot"></span>
+      <span class="nav-title" id="navTitle">BTC/USDT</span>
+    </div>
+    <div class="nav-right">
+      <div class="nav-price-val" id="navPrice">--</div>
+      <div class="nav-price-chg" id="navChg">--</div>
+    </div>
+  </div>
+  <!-- Symbol + TF pickers live in nav area -->
+  <div class="top-selects">
+    <select class="sel" id="symbolSel" onchange="changeSymbol(this.value)">
+      <option value="BTCUSDT">BTC/USDT</option>
+      <option value="ETHUSDT">ETH/USDT</option>
+      <option value="SOLUSDT">SOL/USDT</option>
+    </select>
+    <select class="sel" id="candleTfSel" onchange="changeCandleTf(this.value)">
+      <option value="15m">15M</option>
+      <option value="30m">30M</option>
+      <option value="1h" selected>1H</option>
+      <option value="4h">4H</option>
+      <option value="1d">1D</option>
+    </select>
+  </div>
+</div>
+
+<!-- PAGE: SIGNALS -->
+<div id="page-home" class="page active">
+  <div id="homeSpinner" class="spin-wrap"><div class="spin"></div></div>
+  <div id="homeContent" style="display:none">
+
+    <!-- Candle chart -->
+    <div class="card" style="padding-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0">
+        <div class="card-title" style="margin-bottom:0">裸K棒圖</div>
+        <span style="font-size:11px;color:var(--text3)" id="chartSymbolLabel">BTC · 1H</span>
+      </div>
+      <div class="chart-wrap" id="chartWrap">
+        <canvas id="candleChart"></canvas>
+      </div>
+    </div>
+
+    <div class="tf-grid" id="tfGrid"></div>
+
+    <div class="banner neut" id="resBanner">
+      <div class="banner-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;color:var(--text2)"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      </div>
+      <div>
+        <div class="banner-title" id="resTxt">分析中...</div>
+        <div class="banner-sub" id="resSub">等待資料</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div class="card-title" style="margin-bottom:0">當前訊號</div>
+        <span style="font-size:11px;color:var(--text3)" id="sigCount"></span>
+      </div>
+      <div id="signalList"><div class="empty">載入中...</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE: ENTRY -->
+<div id="page-entry" class="page">
+  <div class="card">
+    <div class="card-title">多週期共振分數</div>
+    <div class="score-row" id="scoreMetrics"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">選擇週期</div>
+    <div class="tf-entry-select">
+      <button class="tf-entry-btn" onclick="switchEntryTf('15m',this)">15M</button>
+      <button class="tf-entry-btn" onclick="switchEntryTf('30m',this)">30M</button>
+      <button class="tf-entry-btn active" onclick="switchEntryTf('1h',this)">1H</button>
+      <button class="tf-entry-btn" onclick="switchEntryTf('4h',this)">4H</button>
+      <button class="tf-entry-btn" onclick="switchEntryTf('1d',this)">1D</button>
+    </div>
+    <div id="entryContent"></div>
+  </div>
+</div>
+
+<!-- PAGE: ALERTS -->
+<div id="page-alerts" class="page">
+  <div class="card">
+    <div class="card-title" style="margin-bottom:8px">通知狀態</div>
+    <button class="notif-btn" id="notifBtn" onclick="toggleNotif()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      <span id="notifTxt">開啟收線提醒通知</span>
+    </button>
+    <div style="font-size:12px;color:var(--text3);line-height:1.6" id="notifHint">開啟後，每個週期K棒收線時將自動跳出通知。</div>
+  </div>
+  <div class="card">
+    <div class="card-title">即時監控</div>
+    <div id="monitorRows"></div>
+  </div>
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div class="card-title" style="margin-bottom:0">提醒記錄</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span style="font-size:11px;color:var(--text3)" id="logCount"></span>
+        <button onclick="clearLog()" style="font-size:11px;color:var(--text3);background:none;border:none;cursor:pointer;padding:4px">清除</button>
+      </div>
+    </div>
+    <div id="alertLog"><div class="empty">尚無提醒記錄</div></div>
+  </div>
+</div>
+
+<!-- PAGE: SETTINGS -->
+<div id="page-settings" class="page">
+  <div class="card">
+    <div class="card-title">收線通知週期</div>
+    <div class="setting-row"><div><div class="setting-lbl">15M</div></div><label class="toggle"><input type="checkbox" id="sw-15m" checked onchange="saveSetting()"><span class="toggle-slider"></span></label></div>
+    <div class="setting-row"><div><div class="setting-lbl">30M</div></div><label class="toggle"><input type="checkbox" id="sw-30m" checked onchange="saveSetting()"><span class="toggle-slider"></span></label></div>
+    <div class="setting-row"><div><div class="setting-lbl">1H</div></div><label class="toggle"><input type="checkbox" id="sw-1h" checked onchange="saveSetting()"><span class="toggle-slider"></span></label></div>
+    <div class="setting-row"><div><div class="setting-lbl">4H</div></div><label class="toggle"><input type="checkbox" id="sw-4h" checked onchange="saveSetting()"><span class="toggle-slider"></span></label></div>
+    <div class="setting-row"><div><div class="setting-lbl">1D</div></div><label class="toggle"><input type="checkbox" id="sw-1d" checked onchange="saveSetting()"><span class="toggle-slider"></span></label></div>
+  </div>
+  <div class="card">
+    <div class="card-title">通知條件</div>
+    <div class="setting-row"><div><div class="setting-lbl">僅共振訊號</div><div class="setting-sub">多週期同時觸發才通知</div></div><label class="toggle"><input type="checkbox" id="sw-resonance" onchange="saveSetting()"><span class="toggle-slider"></span></label></div>
+    <div class="setting-row"><div><div class="setting-lbl">MACD 金叉/死叉</div></div><label class="toggle"><input type="checkbox" id="sw-macd" checked onchange="saveSetting()"><span class="toggle-slider"></span></label></div>
+    <div class="setting-row"><div><div class="setting-lbl">RSI 反轉 (20/80)</div></div><label class="toggle"><input type="checkbox" id="sw-rsi" checked onchange="saveSetting()"><span class="toggle-slider"></span></label></div>
+    <div class="setting-row"><div><div class="setting-lbl">TD 序列 9/13轉</div></div><label class="toggle"><input type="checkbox" id="sw-td" checked onchange="saveSetting()"><span class="toggle-slider"></span></label></div>
+    <div class="setting-row"><div><div class="setting-lbl">即時訊號偵測</div><div class="setting-sub">每分鐘掃描新訊號</div></div><label class="toggle"><input type="checkbox" id="sw-realtime" checked onchange="saveSetting()"><span class="toggle-slider"></span></label></div>
+  </div>
+  <div class="card">
+    <div class="card-title">iOS 安裝說明</div>
+    <div style="font-size:13px;color:var(--text2);line-height:1.8">
+      <p>① 用 <strong>Safari</strong> 開啟此頁面</p>
+      <p>② 點選底部 <strong>分享按鈕</strong>（方框+箭頭）</p>
+      <p>③ 選擇「<strong>加入主畫面</strong>」→ 點「新增」</p>
+      <p style="color:var(--text3);font-size:11px;margin-top:8px">iOS 16.4+ 支援 PWA 推播。需在 Safari 允許通知。</p>
+    </div>
+  </div>
+</div>
+
+<div class="tabbar">
+  <div class="tab-item active" onclick="switchPage('home',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+    <span>訊號</span>
+  </div>
+  <div class="tab-item" onclick="switchPage('entry',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+    <span>進出場</span>
+  </div>
+  <div class="tab-item" onclick="switchPage('alerts',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+    <span>提醒</span>
+    <span class="tab-badge" id="alertBadge" style="display:none">0</span>
+  </div>
+  <div class="tab-item" onclick="switchPage('settings',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    <span>設定</span>
+  </div>
+</div>
+
+<script>
+/* ════════════════════════════════════════
+   CONSTANTS
+════════════════════════════════════════ */
+const TFS=[
+  {key:'15m',label:'15M',interval:'15m',ms:15*60*1000},
+  {key:'30m',label:'30M',interval:'30m',ms:30*60*1000},
+  {key:'1h', label:'1H', interval:'1h', ms:60*60*1000},
+  {key:'4h', label:'4H', interval:'4h', ms:4*60*60*1000},
+  {key:'1d', label:'1D', interval:'1d', ms:24*60*60*1000},
+];
+const SYMBOLS={
+  BTCUSDT:{label:'BTC/USDT',short:'BTC'},
+  ETHUSDT:{label:'ETH/USDT',short:'ETH'},
+  SOLUSDT:{label:'SOL/USDT',short:'SOL'},
+};
+
+/* ════════════════════════════════════════
+   STATE
+════════════════════════════════════════ */
+let currentSymbol='BTCUSDT', currentCandleTf='1h', currentEntryTf='1h';
+let analyses={}, rawKlines={};
+let alertLog=[], notifEnabled=false, prevPrice=0;
+let timerFired={}, settings={};
+let unreadAlerts=0, activePage='home';
+let prevSignalKeys=new Set();
+
+/* ════════════════════════════════════════
+   MATH HELPERS
+════════════════════════════════════════ */
+function ema(d,p){const k=2/(p+1);let e=[d[0]];for(let i=1;i<d.length;i++)e.push(d[i]*k+e[i-1]*(1-k));return e}
+
+function calcMACD(c){
+  const e12=ema(c,12),e26=ema(c,26);
+  const ml=c.map((_,i)=>e12[i]-e26[i]);
+  const sig=ema(ml,9);
+  const hist=ml.map((v,i)=>v-sig[i]);
+  return{ml,sig,hist}
+}
+
+function calcRSI(c,p=14){
+  let g=[],l=[];
+  for(let i=1;i<c.length;i++){const d=c[i]-c[i-1];g.push(Math.max(0,d));l.push(Math.max(0,-d))}
+  let ag=g.slice(0,p).reduce((a,b)=>a+b)/p,al=l.slice(0,p).reduce((a,b)=>a+b)/p;
+  let r=new Array(p).fill(null);
+  r.push(100-100/(1+ag/Math.max(al,1e-9)));
+  for(let i=p;i<g.length;i++){ag=(ag*(p-1)+g[i])/p;al=(al*(p-1)+l[i])/p;r.push(100-100/(1+ag/Math.max(al,1e-9)))}
+  return r
+}
+
+function calcTD(c){
+  let bs=0,ss=0;const buy=[],sell=[];
+  for(let i=4;i<c.length;i++){
+    if(c[i]<c[i-4]){bs++;ss=0}else if(c[i]>c[i-4]){ss++;bs=0}else{bs=0;ss=0}
+    buy.push(bs);sell.push(ss)
+  }
+  const bc=buy[buy.length-1]||0,sc=sell[sell.length-1]||0;
+  const b9=buy.slice(-15).some(v=>v>=9),s9=sell.slice(-15).some(v=>v>=9);
+  const b13=buy.slice(-15).some(v=>v>=13),s13=sell.slice(-15).some(v=>v>=13);
+  return{bc,sc,b9,s9,b13,s13}
+}
+
+/* ────────────────────────────────────────
+   SWING HIGH / LOW detection for Fibonacci
+   Looks back over last N candles to find
+   the most recent significant swing high & low
+──────────────────────────────────────── */
+function findSwings(klines, lookback=40){
+  const recent=klines.slice(-lookback);
+  let swingHigh=-Infinity, swingHighIdx=-1;
+  let swingLow=Infinity,  swingLowIdx=-1;
+
+  // Find pivot highs/lows: a candle whose high/low is highest/lowest
+  // among its 3 neighbours on each side (5-bar pivot)
+  for(let i=2;i<recent.length-2;i++){
+    const h=recent[i].h;
+    if(h>recent[i-1].h&&h>recent[i-2].h&&h>recent[i+1].h&&h>recent[i+2].h){
+      if(h>swingHigh){swingHigh=h;swingHighIdx=i}
+    }
+    const l=recent[i].l;
+    if(l<recent[i-1].l&&l<recent[i-2].l&&l<recent[i+1].l&&l<recent[i+2].l){
+      if(l<swingLow){swingLow=l;swingLowIdx=i}
+    }
+  }
+
+  // Fallback: if no pivot found, use simple max/min
+  if(swingHighIdx<0){
+    swingHigh=Math.max(...recent.map(k=>k.h));
+    swingHighIdx=recent.findIndex(k=>k.h===swingHigh);
+  }
+  if(swingLowIdx<0){
+    swingLow=Math.min(...recent.map(k=>k.l));
+    swingLowIdx=recent.findIndex(k=>k.l===swingLow);
+  }
+
+  return{swingHigh,swingLow,swingHighIdx,swingLowIdx}
+}
+
+/* ────────────────────────────────────────
+   FIBONACCI EXTENSION LEVELS
+   Bullish: entry near swingLow (A), stop below swingLow
+            TP = swingLow + (swingHigh-swingLow) * ratio
+   Bearish: entry near swingHigh (B), stop above swingHigh
+            TP = swingHigh - (swingHigh-swingLow) * ratio
+──────────────────────────────────────── */
+function calcFibLevels(swingHigh, swingLow, currentPrice){
+  const range=swingHigh-swingLow;
+  const atrBuffer=range*0.05; // 5% of range as buffer for SL
+
+  // Bullish scenario: buy near prior swing low, targets above swing high
+  const longEntry=swingLow+(range*0.236);  // retracement entry zone
+  const longSL=swingLow-atrBuffer;
+  const longRisk=longEntry-longSL;
+  const longTP1=swingHigh+(range*0.0);    // 1:1 = swing high
+  const longTP15=swingHigh+(range*0.5);   // 1:1.5 extension
+  const longTP2=swingHigh+(range*1.0);    // 1:2 extension
+
+  // Bearish scenario: sell near prior swing high, targets below swing low
+  const shortEntry=swingHigh-(range*0.236);
+  const shortSL=swingHigh+atrBuffer;
+  const shortRisk=shortSL-shortEntry;
+  const shortTP1=swingLow-(range*0.0);
+  const shortTP15=swingLow-(range*0.5);
+  const shortTP2=swingLow-(range*1.0);
+
+  return{
+    range,
+    longEntry,longSL,longTP1,longTP15,longTP2,longRisk,
+    shortEntry,shortSL,shortTP1,shortTP15,shortTP2,shortRisk,
+    swingHigh,swingLow
+  }
+}
+
+function analyze(closes){
+  const n=closes.length,price=closes[n-1];
+  const macd=calcMACD(closes),rsis=calcRSI(closes),td=calcTD(closes);
+  const lRSI=rsis.filter(v=>v!==null).slice(-1)[0];
+  const pRSI=rsis.filter(v=>v!==null).slice(-2)[0];
+  const lh=macd.hist[n-1],ph=macd.hist[n-2],lm=macd.ml[n-1],ls=macd.sig[n-1];
+  const goldCross=ph<0&&lh>=0,deadCross=ph>0&&lh<=0,macdMom=lh>ph;
+  const rsiRevUp=pRSI<20&&lRSI>=20,rsiRevDown=pRSI>80&&lRSI<=80;
+  const rsiOS=lRSI<20,rsiOB=lRSI>80,rsiOS35=lRSI>=20&&lRSI<35,rsiOB65=lRSI>65&&lRSI<=80;
+  let bull=0,bear=0;
+  if(goldCross)bull+=3;if(deadCross)bear+=3;
+  if(lh>0&&macdMom)bull++;if(lh<0&&!macdMom)bear++;
+  if(rsiRevUp)bull+=3;if(rsiRevDown)bear+=3;
+  if(rsiOS)bull+=2;if(rsiOB)bear+=2;
+  if(rsiOS35)bull++;if(rsiOB65)bear++;
+  if(td.b9)bull+=2;if(td.s9)bear+=2;
+  if(td.b13)bull++;if(td.s13)bear++;
+  return{price,lh,ph,lm,ls,goldCross,deadCross,macdMom,lRSI,pRSI,rsiRevUp,rsiRevDown,rsiOS,rsiOB,rsiOS35,rsiOB65,td,bull,bear,closes}
+}
+
+/* ════════════════════════════════════════
+   FETCH
+════════════════════════════════════════ */
+async function fetchTF(symbol,tf){
+  try{
+    const r=await fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${tf.interval}&limit=100`);
+    if(!r.ok)throw 0;
+    const d=await r.json();
+    return{
+      closes:d.map(k=>parseFloat(k[4])),
+      klines:d.map(k=>({o:parseFloat(k[1]),h:parseFloat(k[2]),l:parseFloat(k[3]),c:parseFloat(k[4]),t:k[0]}))
+    }
+  }catch{
+    // Demo data scaled roughly
+    const base={BTCUSDT:78000,ETHUSDT:2600,SOLUSDT:150}[symbol]||100;
+    let c=[],p=base,klines=[];
+    for(let i=0;i<100;i++){
+      const chg=(Math.random()-.49)*(base*0.004);
+      const o=p;p=Math.max(base*.7,Math.min(base*1.3,p+chg));
+      const h=Math.max(o,p)+(Math.random()*base*.001);
+      const l=Math.min(o,p)-(Math.random()*base*.001);
+      c.push(p);klines.push({o,h,l,c:p,t:Date.now()-((99-i)*tf.ms)})
+    }
+    return{closes:c,klines}
+  }
+}
+
+async function fetchAll(){
+  document.getElementById('liveDot').className='live-dot off';
+  const sym=currentSymbol;
+  const res=await Promise.all(TFS.map(tf=>fetchTF(sym,tf)));
+  // Only update if symbol hasn't changed mid-fetch
+  if(sym!==currentSymbol)return;
+  TFS.forEach((tf,i)=>{
+    analyses[tf.key]=analyze(res[i].closes);
+    rawKlines[tf.key]=res[i].klines;
+  });
+  const p=analyses['1h'].price;
+  const chg=prevPrice>0?((p-prevPrice)/prevPrice*100):0;
+  const sInfo=SYMBOLS[currentSymbol];
+  document.getElementById('navTitle').textContent=sInfo.label;
+  document.getElementById('navPrice').textContent=fmtPrice(p,currentSymbol);
+  const ce=document.getElementById('navChg');
+  ce.textContent=(chg>=0?'+':'')+chg.toFixed(2)+'%';
+  ce.className='nav-price-chg '+(chg>=0?'chg-up':'chg-dn');
+  prevPrice=p;
+  document.getElementById('liveDot').className='live-dot';
+  document.getElementById('homeSpinner').style.display='none';
+  document.getElementById('homeContent').style.display='block';
+  checkNewSignals();
+  renderTFGrid();renderResonance();renderSignals();
+  renderEntry();renderMonitorStatus();
+  drawCandleChart(currentCandleTf);
+}
+
+/* ════════════════════════════════════════
+   CANDLE CHART  (with hi/lo labels)
+════════════════════════════════════════ */
+function drawCandleChart(tfKey){
+  const klines=rawKlines[tfKey];
+  if(!klines||!klines.length)return;
+  const symInfo=SYMBOLS[currentSymbol];
+  const tfInfo=TFS.find(t=>t.key===tfKey);
+  document.getElementById('chartSymbolLabel').textContent=`${symInfo.short} · ${tfInfo.label}`;
+
+  const canvas=document.getElementById('candleChart');
+  const wrap=document.getElementById('chartWrap');
+  const dpr=window.devicePixelRatio||1;
+  // Responsive height: 55vw capped
+  const W=wrap.clientWidth;
+  const H=Math.min(Math.round(W*0.55),280);
+  wrap.style.height=H+'px';
+  canvas.width=W*dpr;canvas.height=H*dpr;
+  canvas.style.width=W+'px';canvas.style.height=H+'px';
+  const ctx=canvas.getContext('2d');
+  ctx.scale(dpr,dpr);
+
+  const recent=klines.slice(-60);
+  const highs=recent.map(k=>k.h),lows=recent.map(k=>k.l);
+  const maxP=Math.max(...highs),minP=Math.min(...lows);
+  const priceRange=(maxP-minP)||1;
+
+  const padT=28,padB=20,padL=2,padR=60;
+  const chartW=W-padL-padR,chartH=H-padT-padB;
+  const n=recent.length;
+  const slotW=chartW/n;
+  const bodyW=Math.max(1.5,slotW*0.6);
+
+  const toY=p=>padT+((maxP-p)/priceRange)*chartH;
+
+  // Background
+  ctx.fillStyle='#1e1e1e';ctx.fillRect(0,0,W,H);
+
+  // Price grid
+  const steps=4;
+  ctx.strokeStyle='rgba(255,255,255,.04)';ctx.lineWidth=0.5;
+  ctx.fillStyle='rgba(160,160,160,.55)';
+  const fontSize=Math.max(9,Math.min(10,W/50));
+  ctx.font=`${fontSize}px -apple-system,sans-serif`;
+  ctx.textAlign='right';ctx.textBaseline='middle';
+  for(let i=0;i<=steps;i++){
+    const p=minP+(priceRange/steps)*i;
+    const y=toY(p);
+    ctx.beginPath();ctx.moveTo(padL,y);ctx.lineTo(W-padR+4,y);ctx.stroke();
+    ctx.fillText(fmtPrice(p,currentSymbol,true),W-2,y);
+  }
+
+  // ── CHART HIGH / LOW MARKERS ──
+  const chartHighY=toY(maxP);
+  const chartLowY=toY(minP);
+  const chartHighIdx=highs.indexOf(maxP);
+  const chartLowIdx=lows.indexOf(minP);
+  const highX=padL+slotW*chartHighIdx+slotW/2;
+  const lowX=padL+slotW*chartLowIdx+slotW/2;
+
+  // High label
+  ctx.strokeStyle='rgba(255,214,0,.7)';ctx.lineWidth=0.8;ctx.setLineDash([3,2]);
+  ctx.beginPath();ctx.moveTo(padL,chartHighY);ctx.lineTo(W-padR+4,chartHighY);ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle='rgba(255,214,0,.9)';ctx.textAlign='right';ctx.textBaseline='bottom';
+  ctx.fillText('▲ '+fmtPrice(maxP,currentSymbol,true),W-2,chartHighY-1);
+
+  // Low label
+  ctx.strokeStyle='rgba(74,158,232,.7)';ctx.lineWidth=0.8;ctx.setLineDash([3,2]);
+  ctx.beginPath();ctx.moveTo(padL,chartLowY);ctx.lineTo(W-padR+4,chartLowY);ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle='rgba(74,158,232,.9)';ctx.textBaseline='top';
+  ctx.fillText('▼ '+fmtPrice(minP,currentSymbol,true),W-2,chartLowY+1);
+
+  // Diamond markers on candles
+  ctx.fillStyle='rgba(255,214,0,.85)';
+  ctx.beginPath();ctx.moveTo(highX,chartHighY-6);ctx.lineTo(highX+4,chartHighY);ctx.lineTo(highX,chartHighY+6);ctx.lineTo(highX-4,chartHighY);ctx.closePath();ctx.fill();
+  ctx.fillStyle='rgba(74,158,232,.85)';
+  ctx.beginPath();ctx.moveTo(lowX,chartLowY-6);ctx.lineTo(lowX+4,chartLowY);ctx.lineTo(lowX,chartLowY+6);ctx.lineTo(lowX-4,chartLowY);ctx.closePath();ctx.fill();
+
+  // Candles
+  recent.forEach((k,i)=>{
+    const cx=padL+slotW*i+slotW/2;
+    const bull=k.c>=k.o;
+    const color=bull?'#1DB97A':'#E84B4B';
+    ctx.strokeStyle=color;ctx.fillStyle=color;
+    // Wick
+    ctx.lineWidth=Math.max(.8,bodyW*.12);
+    ctx.beginPath();ctx.moveTo(cx,toY(k.h));ctx.lineTo(cx,toY(k.l));ctx.stroke();
+    // Body
+    const bodyTop=toY(Math.max(k.o,k.c));
+    const bodyH=Math.max(1.5,Math.abs(toY(k.o)-toY(k.c)));
+    ctx.fillRect(cx-bodyW/2,bodyTop,bodyW,bodyH);
+  });
+
+  // Current price line
+  const lastP=recent[recent.length-1].c;
+  const ly=toY(lastP);
+  ctx.strokeStyle='rgba(74,158,232,.5)';ctx.lineWidth=0.7;ctx.setLineDash([3,3]);
+  ctx.beginPath();ctx.moveTo(padL,ly);ctx.lineTo(W-padR+4,ly);ctx.stroke();
+  ctx.setLineDash([]);
+  // Price tag box on right
+  const tagTxt=fmtPrice(lastP,currentSymbol,true);
+  const tagW=padR-2;
+  ctx.fillStyle='#4A9EE8';ctx.beginPath();
+  ctx.roundRect?ctx.roundRect(W-padR+5,ly-8,tagW-4,16,3):ctx.rect(W-padR+5,ly-8,tagW-4,16);
+  ctx.fill();
+  ctx.fillStyle='#fff';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(tagTxt,W-padR+5+(tagW-4)/2,ly);
+}
+
+function changeCandleTf(tf){
+  currentCandleTf=tf;
+  if(rawKlines[tf])drawCandleChart(tf);
+}
+function changeSymbol(sym){
+  currentSymbol=sym;
+  prevPrice=0;
+  analyses={};rawKlines={};prevSignalKeys=new Set();
+  document.getElementById('homeSpinner').style.display='flex';
+  document.getElementById('homeContent').style.display='none';
+  fetchAll();
+}
+
+/* ════════════════════════════════════════
+   TF GRID
+════════════════════════════════════════ */
+function biasTxt(b,be){
+  if(b>be+2)return{t:'強多',c:'green'};if(b>be)return{t:'偏多',c:'green'};
+  if(be>b+2)return{t:'強空',c:'red'};if(be>b)return{t:'偏空',c:'red'};
+  return{t:'中性',c:'amber'}
+}
+function renderTFGrid(){
+  document.getElementById('tfGrid').innerHTML=TFS.map(tf=>{
+    const a=analyses[tf.key];
+    if(!a)return`<div class="tf-card neut"><div class="tf-lbl">${tf.label}</div><div class="tf-bias amber">--</div></div>`;
+    const b=biasTxt(a.bull,a.bear);
+    const rem=getRemaining(tf),pct=Math.round((1-rem/tf.ms)*100);
+    const cls=a.bull>a.bear+1?'bull':a.bear>a.bull+1?'bear':'neut';
+    return`<div class="tf-card ${cls}" id="tfc-${tf.key}">
+      <div class="tf-lbl">${tf.label}</div>
+      <div class="tf-bias ${b.c}">${b.t}</div>
+      <div class="tf-score">${a.bull}▲${a.bear}▼</div>
+      <div class="tf-timer ${rem<60000?'urgent':''}" id="timer-${tf.key}">${msToCD(rem)}</div>
+      <div class="prog-wrap"><div class="prog-fill" id="prog-${tf.key}" style="width:${pct}%"></div></div>
+    </div>`
+  }).join('')
+}
+
+/* ════════════════════════════════════════
+   RESONANCE
+════════════════════════════════════════ */
+function resonanceScore(){
+  const w={d:2,h4:1.5,h:1,m30:.75,m15:.5};
+  const tb=(analyses['1d']?.bull||0)*w.d+(analyses['4h']?.bull||0)*w.h4+(analyses['1h']?.bull||0)*w.h+(analyses['30m']?.bull||0)*w.m30+(analyses['15m']?.bull||0)*w.m15;
+  const tbe=(analyses['1d']?.bear||0)*w.d+(analyses['4h']?.bear||0)*w.h4+(analyses['1h']?.bear||0)*w.h+(analyses['30m']?.bear||0)*w.m30+(analyses['15m']?.bear||0)*w.m15;
+  return{tb,tbe}
+}
+function renderResonance(){
+  const{tb,tbe}=resonanceScore();
+  const el=document.getElementById('resBanner'),rt=document.getElementById('resTxt'),rs=document.getElementById('resSub');
+  if(tb>tbe*1.3){el.className='banner bull';rt.textContent='多方共振 — 優先做多';rs.textContent=`多${tb.toFixed(1)} vs 空${tbe.toFixed(1)}`}
+  else if(tbe>tb*1.3){el.className='banner bear';rt.textContent='空方共振 — 優先做空';rs.textContent=`空${tbe.toFixed(1)} vs 多${tb.toFixed(1)}`}
+  else{el.className='banner neut';rt.textContent='多空分歧 — 建議觀望';rs.textContent=`多${tb.toFixed(1)} vs 空${tbe.toFixed(1)}`}
+}
+
+/* ════════════════════════════════════════
+   SIGNALS
+════════════════════════════════════════ */
+function collectSignals(){
+  const sigs=[];
+  TFS.forEach(tf=>{
+    const a=analyses[tf.key];if(!a)return;
+    const is4H=tf.key==='4h';
+    if(settings['sw-macd']!==false){
+      if(a.goldCross)sigs.push({name:is4H?'⭐ 4H MACD 金叉':'MACD 金叉',desc:'快線上穿訊號線，多方動能啟動',tf:tf.label,dir:'bull',cls:is4H?'sig-4h-gold':'sig-bull',key:`gold-${tf.key}`});
+      if(a.deadCross)sigs.push({name:is4H?'⚠️ 4H MACD 死叉':'MACD 死叉',desc:'快線下穿訊號線，空方動能啟動',tf:tf.label,dir:'bear',cls:is4H?'sig-4h-dead':'sig-bear',key:`dead-${tf.key}`});
+      if(a.lh>0&&a.macdMom&&!a.goldCross)sigs.push({name:'MACD 多方增強',desc:`柱狀擴大 ${a.lh.toFixed(2)}`,tf:tf.label,dir:'bull',cls:'sig-bull',key:`mbu-${tf.key}`});
+      if(a.lh<0&&!a.macdMom&&!a.deadCross)sigs.push({name:'MACD 空方增強',desc:`空方柱擴大 ${a.lh.toFixed(2)}`,tf:tf.label,dir:'bear',cls:'sig-bear',key:`mbe-${tf.key}`});
+    }
+    if(settings['sw-rsi']!==false){
+      if(a.rsiOS)sigs.push({name:'🔥 RSI 極度超賣 <20',desc:`RSI ${a.lRSI.toFixed(1)}，強力反彈訊號`,tf:tf.label,dir:'bull',cls:'sig-rsi-low',key:`rsilow-${tf.key}`});
+      else if(a.rsiOS35)sigs.push({name:'RSI 超賣區間',desc:`RSI ${a.lRSI.toFixed(1)}`,tf:tf.label,dir:'bull',cls:'sig-bull',key:`rsios35-${tf.key}`});
+      if(a.rsiOB)sigs.push({name:'🔥 RSI 極度超買 >80',desc:`RSI ${a.lRSI.toFixed(1)}，強力回落訊號`,tf:tf.label,dir:'bear',cls:'sig-rsi-high',key:`rsihigh-${tf.key}`});
+      else if(a.rsiOB65)sigs.push({name:'RSI 超買區間',desc:`RSI ${a.lRSI.toFixed(1)}`,tf:tf.label,dir:'bear',cls:'sig-bear',key:`rsiob65-${tf.key}`});
+      if(a.rsiRevUp)sigs.push({name:'RSI 超賣反轉 ↑',desc:`RSI ${a.lRSI.toFixed(1)} 從超賣回升`,tf:tf.label,dir:'bull',cls:'sig-bull',key:`rsirup-${tf.key}`});
+      if(a.rsiRevDown)sigs.push({name:'RSI 超買反轉 ↓',desc:`RSI ${a.lRSI.toFixed(1)} 從超買回落`,tf:tf.label,dir:'bear',cls:'sig-bear',key:`rsirdn-${tf.key}`});
+    }
+    if(settings['sw-td']!==false){
+      if(a.td.b9)sigs.push({name:'TD 買方9轉',desc:'底部反轉訊號完成',tf:tf.label,dir:'bull',cls:'sig-bull',key:`b9-${tf.key}`});
+      if(a.td.s9)sigs.push({name:'TD 賣方9轉',desc:'頂部反轉訊號完成',tf:tf.label,dir:'bear',cls:'sig-bear',key:`s9-${tf.key}`});
+      if(a.td.b13)sigs.push({name:'TD 買方13轉',desc:'強力底部確認',tf:tf.label,dir:'bull',cls:'sig-bull',key:`b13-${tf.key}`});
+      if(a.td.s13)sigs.push({name:'TD 賣方13轉',desc:'強力頂部確認',tf:tf.label,dir:'bear',cls:'sig-bear',key:`s13-${tf.key}`});
+    }
+  });
+  return sigs
+}
+function renderSignals(){
+  const sigs=collectSignals();
+  document.getElementById('sigCount').textContent=sigs.length+' 個訊號';
+  const el=document.getElementById('signalList');
+  if(!sigs.length){el.innerHTML='<div class="empty">目前無明顯反轉訊號</div>';return}
+  el.innerHTML=sigs.map(s=>`
+    <div class="sig-item ${s.cls}">
+      <div class="sig-icon-wrap">${s.dir==='bull'
+        ?`<svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5" style="width:13px;height:13px"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>`
+        :`<svg viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2.5" style="width:13px;height:13px"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>`}
+      </div>
+      <div class="sig-info"><div class="sig-name">${s.name}</div><div class="sig-desc">${s.desc}</div></div>
+      <span class="sig-tf-badge">${s.tf}</span>
+    </div>`).join('')
+}
+function checkNewSignals(){
+  if(!settings['sw-realtime'])return;
+  const sigs=collectSignals();
+  const currentKeys=new Set(sigs.map(s=>s.key));
+  sigs.filter(s=>!prevSignalKeys.has(s.key)).forEach(s=>{
+    addLog(`[新訊號] ${s.name} (${s.tf}) ${fmtPrice(analyses['1h']?.price||0,currentSymbol)}`,s.dir);
+    if(notifEnabled&&Notification.permission==='granted')
+      new Notification(`${SYMBOLS[currentSymbol].short} ${s.name}`,{body:`${s.tf} · ${s.desc}`,tag:`sig-${s.key}`,icon:'./icons/icon-192.png'});
+  });
+  prevSignalKeys=currentKeys;
+}
+
+/* ════════════════════════════════════════
+   ENTRY PAGE — FIBONACCI
+════════════════════════════════════════ */
+function switchEntryTf(tf,btn){
+  currentEntryTf=tf;
+  document.querySelectorAll('.tf-entry-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderEntry();
+}
+function renderEntry(){
+  const {tb,tbe}=resonanceScore();
+  document.getElementById('scoreMetrics').innerHTML=`
+    <div class="score-box"><div class="score-lbl">多方加權</div><div class="score-val green">${tb.toFixed(1)}</div></div>
+    <div class="score-box"><div class="score-lbl">空方加權</div><div class="score-val red">${tbe.toFixed(1)}</div></div>
+    <div class="score-box"><div class="score-lbl">建議方向</div><div class="score-val ${tb>tbe+3?'green':tbe>tb+3?'red':'amber'}">${tb>tbe+3?'做多':tbe>tb+3?'做空':'觀望'}</div></div>`;
+
+  const a=analyses[currentEntryTf];
+  const klines=rawKlines[currentEntryTf];
+  if(!a||!klines){document.getElementById('entryContent').innerHTML='<div class="empty">載入中...</div>';return}
+
+  const tf=TFS.find(t=>t.key===currentEntryTf);
+  const{swingHigh,swingLow}=findSwings(klines,50);
+  const fib=calcFibLevels(swingHigh,swingLow,a.price);
+  const sym=currentSymbol;
+
+  document.getElementById('entryContent').innerHTML=`
+    <!-- Swing reference -->
+    <div class="swing-row">
+      <div class="swing-box">
+        <div class="swing-lbl">📈 區間前高（Swing H）</div>
+        <div class="swing-val yellow">${fmtPrice(swingHigh,sym)}</div>
+      </div>
+      <div class="swing-box">
+        <div class="swing-lbl">📉 區間前低（Swing L）</div>
+        <div class="swing-val blue">${fmtPrice(swingLow,sym)}</div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:10px">
+      區間幅度：${fmtPrice(fib.range,sym,true)}（${((fib.range/swingLow)*100).toFixed(2)}%）
+    </div>
+
+    <!-- LONG -->
+    <div class="fib-section">
+      <div class="fib-section-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" style="width:14px;height:14px"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+        多單 — 基於前低斐波納契擴張
+      </div>
+      <div class="fib-grid">
+        <div class="fib-card fib-long">
+          <div class="fib-type">▲ 多單進場</div>
+          <div class="fib-row"><span class="fib-key">進場區</span><span class="fib-val">${fmtPrice(fib.longEntry,sym)}</span></div>
+          <div class="fib-row"><span class="fib-key">Fib 0.236</span><span class="fib-val" style="font-size:9px;opacity:.7">前低+23.6%幅度</span></div>
+          <div class="fib-divider"></div>
+          <div class="fib-row"><span class="fib-key">止損 SL</span><span class="fib-val">${fmtPrice(fib.longSL,sym)}</span></div>
+          <div class="fib-row"><span class="fib-key">前低-5%</span><span class="fib-val" style="font-size:9px;opacity:.7">${fmtPrice(fib.longEntry-fib.longSL,sym,true)} USDT</span></div>
+        </div>
+        <div class="fib-card fib-long">
+          <div class="fib-type">🎯 止盈目標</div>
+          <div class="fib-row"><span class="fib-key">TP1 (1:1)</span><span class="fib-val">${fmtPrice(fib.longTP1,sym)}</span></div>
+          <div class="fib-row"><span class="fib-key">= 前高</span><span class="fib-val" style="font-size:9px;opacity:.7">Fib 扩 1.0</span></div>
+          <div class="fib-divider"></div>
+          <div class="fib-row"><span class="fib-key">TP2 (1:1.5)</span><span class="fib-val">${fmtPrice(fib.longTP15,sym)}</span></div>
+          <div class="fib-row"><span class="fib-key">TP3 (1:2)</span><span class="fib-val">${fmtPrice(fib.longTP2,sym)}</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SHORT -->
+    <div class="fib-section">
+      <div class="fib-section-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2" style="width:14px;height:14px"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>
+        空單 — 基於前高斐波納契擴張
+      </div>
+      <div class="fib-grid">
+        <div class="fib-card fib-short">
+          <div class="fib-type">▼ 空單進場</div>
+          <div class="fib-row"><span class="fib-key">進場區</span><span class="fib-val">${fmtPrice(fib.shortEntry,sym)}</span></div>
+          <div class="fib-row"><span class="fib-key">Fib 0.764</span><span class="fib-val" style="font-size:9px;opacity:.7">前高-23.6%幅度</span></div>
+          <div class="fib-divider"></div>
+          <div class="fib-row"><span class="fib-key">止損 SL</span><span class="fib-val">${fmtPrice(fib.shortSL,sym)}</span></div>
+          <div class="fib-row"><span class="fib-key">前高+5%</span><span class="fib-val" style="font-size:9px;opacity:.7">${fmtPrice(fib.shortSL-fib.shortEntry,sym,true)} USDT</span></div>
+        </div>
+        <div class="fib-card fib-short">
+          <div class="fib-type">🎯 止盈目標</div>
+          <div class="fib-row"><span class="fib-key">TP1 (1:1)</span><span class="fib-val">${fmtPrice(fib.shortTP1,sym)}</span></div>
+          <div class="fib-row"><span class="fib-key">= 前低</span><span class="fib-val" style="font-size:9px;opacity:.7">Fib 扩 1.0</span></div>
+          <div class="fib-divider"></div>
+          <div class="fib-row"><span class="fib-key">TP2 (1:1.5)</span><span class="fib-val">${fmtPrice(fib.shortTP15,sym)}</span></div>
+          <div class="fib-row"><span class="fib-key">TP3 (1:2)</span><span class="fib-val">${fmtPrice(fib.shortTP2,sym)}</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="fib-note">
+      📐 <strong>斐波納契擴張說明</strong><br>
+      進場區基於 Fib 0.236 回調位，止損設在前低/前高外 5% buffer。<br>
+      TP1 = 前高/前低（1:1），TP2 = 50% 延伸（1:1.5），TP3 = 100% 延伸（1:2）。<br>
+      週期：${tf.label}｜前高 ${fmtPrice(swingHigh,sym)}｜前低 ${fmtPrice(swingLow,sym)}
+    </div>
+  `;
+}
+
+/* ════════════════════════════════════════
+   MONITOR STATUS
+════════════════════════════════════════ */
+function renderMonitorStatus(){
+  const rows=TFS.map(tf=>{
+    const a=analyses[tf.key];if(!a)return'';
+    const rem=getRemaining(tf);
+    const b=biasTxt(a.bull,a.bear);
+    const tags=[];
+    if(a.goldCross)tags.push('金叉');if(a.deadCross)tags.push('死叉');
+    if(a.rsiOS)tags.push('RSI<20');if(a.rsiOB)tags.push('RSI>80');
+    if(a.td.b9)tags.push('買9轉');if(a.td.s9)tags.push('賣9轉');
+    return`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+        <span style="font-size:13px;font-weight:500;width:32px">${tf.label}</span>
+        <span style="font-size:11px" class="${b.c}">${b.t}</span>
+        ${tags.map(t=>`<span style="font-size:10px;padding:2px 6px;border-radius:100px;background:var(--bg4);color:var(--text2)">${t}</span>`).join('')}
+      </div>
+      <span style="font-size:11px;color:${rem<60000?'var(--red)':'var(--text3)'};font-variant-numeric:tabular-nums" id="mst-${tf.key}">${msToCD(rem)}</span>
+    </div>`
+  }).join('');
+  document.getElementById('monitorRows').innerHTML=rows;
+}
+
+/* ════════════════════════════════════════
+   ALERT LOG
+════════════════════════════════════════ */
+function addLog(msg,dir){
+  alertLog.unshift({msg,dir,time:nowStr()});
+  if(alertLog.length>200)alertLog.pop();
+  if(activePage!=='alerts'){unreadAlerts++;updateBadge()}
+  if(activePage==='alerts')renderLog();
+}
+function renderLog(){
+  const el=document.getElementById('alertLog');
+  document.getElementById('logCount').textContent=alertLog.length+'條';
+  if(!alertLog.length){el.innerHTML='<div class="empty">尚無提醒記錄</div>';return}
+  el.innerHTML=alertLog.map(a=>`<div class="log-item log-${a.dir}">
+    <span class="log-msg">${a.msg}</span><span class="log-time">${a.time}</span>
+  </div>`).join('')
+}
+function clearLog(){alertLog=[];renderLog();unreadAlerts=0;updateBadge()}
+function updateBadge(){
+  const b=document.getElementById('alertBadge');
+  if(unreadAlerts>0){b.style.display='flex';b.textContent=unreadAlerts>99?'99+':unreadAlerts}
+  else b.style.display='none'
+}
+
+/* ════════════════════════════════════════
+   NOTIFICATIONS
+════════════════════════════════════════ */
+async function toggleNotif(){
+  if(!('Notification' in window)){addLog('瀏覽器不支援通知','neut');return}
+  if(notifEnabled){
+    notifEnabled=false;
+    document.getElementById('notifBtn').className='notif-btn';
+    document.getElementById('notifTxt').textContent='開啟收線提醒通知';
+    addLog('已關閉提醒通知','neut');return
+  }
+  if(Notification.permission==='denied'){
+    document.getElementById('notifBtn').className='notif-btn warn';
+    document.getElementById('notifTxt').textContent='通知被拒絕 — 請至瀏覽器設定開啟';
+    return
+  }
+  const perm=await Notification.requestPermission();
+  if(perm==='granted'){
+    notifEnabled=true;
+    document.getElementById('notifBtn').className='notif-btn on';
+    document.getElementById('notifTxt').textContent='✓ 通知已開啟（點擊關閉）';
+    new Notification('幣種訊號監控已啟動',{body:'K棒收線及新訊號將即時通知',icon:'./icons/icon-192.png'});
+    addLog('通知已開啟，全訊號即時監控中','bull');
+  }else{
+    document.getElementById('notifBtn').className='notif-btn warn';
+    document.getElementById('notifTxt').textContent='通知權限被拒絕';
+  }
+}
+function checkCloseAlerts(){
+  const onlyRes=settings['sw-resonance'];
+  TFS.forEach(tf=>{
+    if(settings['sw-'+tf.key]===false)return;
+    const a=analyses[tf.key];if(!a)return;
+    const rem=getRemaining(tf);
+    if(!timerFired[tf.key])timerFired[tf.key]={fired:false};
+    if(rem<5000&&!timerFired[tf.key].fired){
+      timerFired[tf.key].fired=true;
+      const sigs=[];
+      if(settings['sw-macd']!==false){if(a.goldCross)sigs.push('MACD金叉');if(a.deadCross)sigs.push('MACD死叉')}
+      if(settings['sw-rsi']!==false){if(a.rsiOS)sigs.push('RSI<20');if(a.rsiOB)sigs.push('RSI>80')}
+      if(settings['sw-td']!==false){if(a.td.b9)sigs.push('買方9轉');if(a.td.s9)sigs.push('賣方9轉')}
+      if(onlyRes&&!sigs.length)return;
+      const dir=a.bull>a.bear?'bull':a.bear>a.bull?'bear':'neut';
+      const body=sigs.length?sigs.join('、'):'本棒無明顯訊號';
+      const sym=SYMBOLS[currentSymbol].short;
+      addLog(`[${sym} ${tf.label}收線] ${body}　${fmtPrice(a.price,currentSymbol)}`,dir);
+      if(notifEnabled&&Notification.permission==='granted')
+        new Notification(`${sym} ${tf.label} K棒收線`,{body,tag:`close-${tf.key}`,icon:'./icons/icon-192.png'});
+    }else if(rem>30000){timerFired[tf.key].fired=false}
+  });
+}
+
+/* ════════════════════════════════════════
+   TIMER UPDATE (1s)
+════════════════════════════════════════ */
+function updateTimers(){
+  TFS.forEach(tf=>{
+    const rem=getRemaining(tf),pct=Math.round((1-rem/tf.ms)*100);
+    const te=document.getElementById('timer-'+tf.key);
+    const pe=document.getElementById('prog-'+tf.key);
+    const mte=document.getElementById('mst-'+tf.key);
+    if(te){te.textContent=msToCD(rem);te.className='tf-timer '+(rem<60000?'urgent':'')}
+    if(pe)pe.style.width=pct+'%';
+    if(mte){mte.textContent=msToCD(rem);mte.style.color=rem<60000?'var(--red)':'var(--text3)'}
+  });
+  checkCloseAlerts();
+}
+
+/* ════════════════════════════════════════
+   PAGE NAV
+════════════════════════════════════════ */
+function switchPage(name,btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-item').forEach(t=>t.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  btn.classList.add('active');
+  activePage=name;
+  if(name==='alerts'){unreadAlerts=0;updateBadge();renderLog()}
+  if(name==='entry')renderEntry();
+  if(name==='home')setTimeout(()=>drawCandleChart(currentCandleTf),60);
+}
+
+/* ════════════════════════════════════════
+   SETTINGS
+════════════════════════════════════════ */
+function saveSetting(){
+  ['15m','30m','1h','4h','1d','resonance','macd','rsi','td','realtime'].forEach(k=>{
+    const el=document.getElementById('sw-'+k);if(el)settings['sw-'+k]=el.checked
+  });
+  try{localStorage.setItem('btc_settings',JSON.stringify(settings))}catch(e){}
+}
+function loadSettings(){
+  try{
+    const s=localStorage.getItem('btc_settings');
+    if(s){settings=JSON.parse(s);Object.keys(settings).forEach(k=>{const el=document.getElementById(k);if(el)el.checked=settings[k]})}
+    else{['15m','30m','1h','4h','1d','macd','rsi','td','realtime'].forEach(k=>{settings['sw-'+k]=true})}
+  }catch(e){}
+}
+
+/* ════════════════════════════════════════
+   HELPERS
+════════════════════════════════════════ */
+function fmtPrice(v,sym,compact=false){
+  if(!v&&v!==0)return'--';
+  // Decimal places by symbol
+  const dp=sym==='BTCUSDT'?0:sym==='ETHUSDT'?2:3;
+  const s=Number(v).toFixed(dp);
+  if(compact)return s;
+  return '$'+parseFloat(s).toLocaleString('en-US',{minimumFractionDigits:dp,maximumFractionDigits:dp})
+}
+function msToCD(ms){
+  if(ms<=0)return'收線';const s=Math.floor(ms/1000);
+  if(s<60)return s+'s';const m=Math.floor(s/60),sec=s%60;
+  if(m<60)return m+'m'+sec+'s';return Math.floor(m/60)+'h'+m%60+'m'
+}
+function getRemaining(tf){return tf.ms-(Date.now()%tf.ms)}
+function nowStr(){return new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}
+
+/* ════════════════════════════════════════
+   INIT
+════════════════════════════════════════ */
+loadSettings();
+fetchAll();
+setInterval(fetchAll,60000);
+setInterval(updateTimers,1000);
+window.addEventListener('resize',()=>{if(rawKlines[currentCandleTf])setTimeout(()=>drawCandleChart(currentCandleTf),50)});
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>
